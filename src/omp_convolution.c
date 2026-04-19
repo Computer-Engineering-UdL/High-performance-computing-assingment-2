@@ -56,7 +56,7 @@ ImagenData initimage(char* nombre, FILE **fp,int partitions, int halo){
     char comentario[300];
     int i=0,chunk=0;
     ImagenData img=NULL;
-    
+
     /*Se habre el fichero ppm*/
 
     if ((*fp=fopen(nombre,"r"))==NULL){
@@ -68,7 +68,7 @@ ImagenData initimage(char* nombre, FILE **fp,int partitions, int halo){
 
         //Reading the first line: Magical Number "P3"
         fscanf(*fp,"%c%d ",&c,&(img->P));
-        
+
         //Reading the image comment
         while((c=fgetc(*fp))!= '\n'){comentario[i]=c;i++;}
         comentario[i]='\0';
@@ -114,7 +114,11 @@ ImagenData duplicateImageData(ImagenData src, int partitions, int halo){
     return dst;
 }
 
-//Read the corresponding chunk from the source Image
+// Read the corresponding chunk from the source image.
+// This stage remains sequential in the OpenMP version because it performs file I/O
+// and updates the shared file position used to manage halo rows between partitions.
+// Parallelizing this part would require extra synchronization and would complicate
+// the partitioned reading logic, so the optimization effort is focused on computation.
 int readImage(ImagenData img, FILE **fp, int dim, int halosize, long *position){
     int i=0, k=0,haloposition=0;
     if (fseek(*fp,*position,SEEK_SET))
@@ -130,10 +134,13 @@ int readImage(ImagenData img, FILE **fp, int dim, int halosize, long *position){
     return 0;
 }
 
-//Duplication of the  just readed source chunk to the destiny image struct chunk
+// Duplication of the just-read source chunk into the destination image chunk.
+// This helper is kept simple in the current version. The main OpenMP work is
+// concentrated on the convolution kernel, which is the dominant phase of the
+// application and provides the best cost-benefit ratio for parallelization.
 int duplicateImageChunk(ImagenData src, ImagenData dst, int dim){
     int i=0;
-    
+
     for(i=0;i<dim;i++){
         dst->R[i] = src->R[i];
         dst->G[i] = src->G[i];
@@ -148,7 +155,7 @@ kernelData leerKernel(char* nombre){
     FILE *fp;
     int i=0;
     kernelData kern=NULL;
-    
+
     /*Opening the kernel file*/
     fp=fopen(nombre,"r");
     if(!fp){
@@ -157,11 +164,11 @@ kernelData leerKernel(char* nombre){
     else{
         //Memory allocation
         kern=(kernelData) malloc(sizeof(struct structkernel));
-        
+
         //Reading kernel matrix dimensions
         fscanf(fp,"%d,%d,", &kern->kernelX, &kern->kernelY);
         kern->vkern = (float *)malloc(kern->kernelX*kern->kernelY*sizeof(float));
-        
+
         // Reading kernel matrix values
         for (i=0;i<(kern->kernelX*kern->kernelY)-1;i++){
             fscanf(fp,"%f,",&kern->vkern[i]);
@@ -200,12 +207,12 @@ int savingChunk(ImagenData img, FILE **fp, int dim, int offset){
 
 // This function free the space allocated for the image structure.
 void freeImagestructure(ImagenData *src){
-    
+
     free((*src)->comentario);
     free((*src)->R);
     free((*src)->G);
     free((*src)->B);
-    
+
     free(*src);
 }
 
@@ -231,21 +238,30 @@ int convolve2D(int* in, int* out, int dataSizeX, int dataSizeY,
     int rowMin, rowMax;                             // to check boundary of input array
     int colMin, colMax;                             //
     float sum;                                      // temp accumulation buffer
-    
+
     // check validity of params
     if(!in || !out || !kernel) return -1;
     if(dataSizeX <= 0 || kernelSizeX <= 0) return -1;
-    
+
     // find center position of kernel (half of kernel size)
     kCenterX = (int)kernelSizeX / 2;
     kCenterY = (int)kernelSizeY / 2;
-    
+
     // init working  pointers
     inPtr = inPtr2 = &in[dataSizeX * kCenterY + kCenterX];  // note that  it is shifted (kCenterX, kCenterY),
     outPtr = out;
     kPtr = kernel;
-    
-    // start convolution
+
+    // The outer loop over image rows is parallelized with OpenMP.
+    // This work decomposition is safe because each iteration writes a different
+    // region of the output array, while the input image and the kernel are only
+    // read by the threads.
+    //
+    // The variables that are specific to each iteration are declared private in
+    // order to avoid race conditions. The runtime schedule is used so that the
+    // scheduling policy can be selected at execution time without recompiling.
+    // This makes it possible to compare static, dynamic, or guided scheduling
+    // during the experimental phase.
      #pragma omp parallel for private(j,m,n,rowMin,rowMax,colMin,colMax,sum) schedule(runtime)
     for(i = 0; i < dataSizeY; ++i)
     {
@@ -292,11 +308,11 @@ int main(int argc, char **argv)
 {
     int i=0,j=0,k=0;
 //    int headstored=0, imagestored=0, stored;
-    
+
     if(argc != 5)
     {
         printf("Usage: %s <image-file> <kernel-file> <result-file> <partitions>\n", argv[0]);
-        
+
         printf("\n\nError, Missing parameters:\n");
         printf("format: ./serialconvolution image_file kernel_file result_file\n");
         printf("- image_file : source image path (*.ppm)\n");
@@ -305,7 +321,7 @@ int main(int argc, char **argv)
         printf("- partitions : Image partitions\n\n");
         return -1;
     }
-    
+
     //////////////////////////////////////////////////////////////////////////////////////////////////
     // READING IMAGE HEADERS, KERNEL Matrix, DUPLICATE IMAGE DATA, OPEN RESULTING IMAGE FILE
     //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,7 +361,7 @@ int main(int argc, char **argv)
     }
     gettimeofday(&tim, NULL);
     tread = tread + (tim.tv_sec+(tim.tv_usec/1000000.0) - start);
-    
+
     //Duplicate the image struct.
     gettimeofday(&tim, NULL);
     start = tim.tv_sec+(tim.tv_usec/1000000.0);
@@ -354,7 +370,7 @@ int main(int argc, char **argv)
     }
     gettimeofday(&tim, NULL);
     tcopy = tcopy + (tim.tv_sec+(tim.tv_usec/1000000.0) - start);
-    
+
     ////////////////////////////////////////
     //Initialize Image Storing file. Open the file and store the image header.
     gettimeofday(&tim, NULL);
@@ -397,13 +413,13 @@ int main(int argc, char **argv)
         }
         //DEBUG
 //        printf("\nRound = %d, position = %ld, partsize= %d, chunksize=%d pixels\n", c, position, partsize, chunksize);
-        
+
         if (readImage(source, &fpsrc, chunksize, halo/2, &position)) {
             return -1;
         }
         gettimeofday(&tim, NULL);
         tread = tread + (tim.tv_sec+(tim.tv_usec/1000000.0) - start);
-        
+
         //Duplicate the image chunk
         gettimeofday(&tim, NULL);
         start = tim.tv_sec+(tim.tv_usec/1000000.0);
@@ -415,20 +431,24 @@ int main(int argc, char **argv)
 //            if (source->R[i]!=output->R[i] || source->G[i]!=output->G[i] || source->B[i]!=output->B[i]) printf("At position i=%d %d!=%d,%d!=%d,%d!=%d\n",i,source->R[i],output->R[i], source->G[i],output->G[i],source->B[i],output->B[i]);
         gettimeofday(&tim, NULL);
         tcopy = tcopy + (tim.tv_sec+(tim.tv_usec/1000000.0) - start);
-        
+
         //////////////////////////////////////////////////////////////////////////////////////////////////
         // CHUNK CONVOLUTION
         //////////////////////////////////////////////////////////////////////////////////////////////////
         gettimeofday(&tim, NULL);
         start = tim.tv_sec+(tim.tv_usec/1000000.0);
-        
+
+				// The convolution is applied independently to the three colour channels.
+        // The same OpenMP kernel is reused for R, G, and B because there are no
+        // dependencies between channels. This preserves the structure of the
+        // original serial program while parallelizing the computational hotspot.
         convolve2D(source->R, output->R, source->ancho, (source->altura/partitions)+halosize, kern->vkern, kern->kernelX, kern->kernelY);
         convolve2D(source->G, output->G, source->ancho, (source->altura/partitions)+halosize, kern->vkern, kern->kernelX, kern->kernelY);
         convolve2D(source->B, output->B, source->ancho, (source->altura/partitions)+halosize, kern->vkern, kern->kernelX, kern->kernelY);
-        
+
         gettimeofday(&tim, NULL);
         tconv = tconv + (tim.tv_sec+(tim.tv_usec/1000000.0) - start);
-        
+
         //////////////////////////////////////////////////////////////////////////////////////////////////
         // CHUNK SAVING
         //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -449,13 +469,13 @@ int main(int argc, char **argv)
 
     fclose(fpsrc);
     fclose(fpdst);
-    
+
 //    freeImagestructure(&source);
 //    freeImagestructure(&output);
-    
+
     gettimeofday(&tim, NULL);
     tend = tim.tv_sec+(tim.tv_usec/1000000.0);
-    
+
     printf("Imatge: %s\n", argv[1]);
     printf("ISizeX : %d\n", source->ancho);
     printf("ISizeY : %d\n", source->altura);
@@ -467,9 +487,9 @@ int main(int argc, char **argv)
     printf("%.6lf seconds elapsed for make the convolution.\n", tconv);
     printf("%.6lf seconds elapsed for writing the resulting image.\n", tstore);
     printf("%.6lf seconds elapsed\n", tend-tstart);
-    
+
     freeImagestructure(&source);
     freeImagestructure(&output);
-    
+
     return 0;
 }
