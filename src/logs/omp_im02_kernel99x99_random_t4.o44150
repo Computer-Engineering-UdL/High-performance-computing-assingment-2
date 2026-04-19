@@ -1,0 +1,22 @@
+===== OPENMP JOB =====
+HOSTNAME=compute-0-4.local
+IMG=/share/apps/files/convolution/images/im02.ppm
+KER=/share/apps/files/convolution/kernel/kernel99x99_random.txt
+PART=1
+THREADS=4
+SCHED=static
+CHUNK=4
+OMP_NUM_THREADS=4
+OUTFILE=/tmp/44150.1.all.q/omp_im02_kernel99x99_random_t4.ppm
+======================
+Imatge: /share/apps/files/convolution/images/im02.ppm
+ISizeX : 600
+ISizeY : 400
+kSizeX : 99
+kSizeY : 99
+0.049951 seconds elapsed for Reading image file.
+0.001216 seconds elapsed for copying image structure.
+0.003095 seconds elapsed for Reading kernel matrix.
+4.544274 seconds elapsed for make the convolution.
+0.048637 seconds elapsed for writing the resulting image.
+4.647198 seconds elapsed

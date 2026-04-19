@@ -1,0 +1,18 @@
+===== SERIAL JOB =====
+HOSTNAME=compute-0-5.local
+IMG=/share/apps/files/convolution/images/im05.ppm
+KER=/share/apps/files/convolution/kernel/kernel5x5_Sharpen.txt
+PART=3
+OUTFILE=/tmp/44123.1.all.q/ser_im05_kernel5x5_Sharpen.ppm
+======================
+Imatge: /share/apps/files/convolution/images/im05.ppm
+ISizeX : 12000
+ISizeY : 8000
+kSizeX : 5
+kSizeY : 5
+17.539118 seconds elapsed for Reading image file.
+0.378771 seconds elapsed for copying image structure.
+0.001864 seconds elapsed for Reading kernel matrix.
+19.931825 seconds elapsed for make the convolution.
+17.190295 seconds elapsed for writing the resulting image.
+55.041916 seconds elapsed

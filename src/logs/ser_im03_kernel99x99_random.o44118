@@ -1,0 +1,18 @@
+===== SERIAL JOB =====
+HOSTNAME=compute-0-6.local
+IMG=/share/apps/files/convolution/images/im03.ppm
+KER=/share/apps/files/convolution/kernel/kernel99x99_random.txt
+PART=1
+OUTFILE=/tmp/44118.1.all.q/ser_im03_kernel99x99_random.ppm
+======================
+Imatge: /share/apps/files/convolution/images/im03.ppm
+ISizeX : 800
+ISizeY : 600
+kSizeX : 99
+kSizeY : 99
+0.099891 seconds elapsed for Reading image file.
+0.002325 seconds elapsed for copying image structure.
+0.003612 seconds elapsed for Reading kernel matrix.
+36.867868 seconds elapsed for make the convolution.
+0.105580 seconds elapsed for writing the resulting image.
+37.079868 seconds elapsed
