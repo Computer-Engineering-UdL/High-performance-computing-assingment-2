@@ -92,3 +92,10 @@ The most important functions in [`src/omp_convolution.c`](src/omp_convolution.c)
 
 - The code is written for partitioned execution so it can handle larger images.
 - The provided scripts were designed for a job scheduler environment, but the core executable can also be run locally if you provide valid input files.
+
+## Authors
+
+This repository was developed by the following authors as part of the High Performance Computing course at UdL MEINF:
+
+- **[Carles Sànchez i Hidalgo]((https://github.com/carless7)**
+- **[Aniol Serrano Ortega]((https://github.com/aniol0012)**
