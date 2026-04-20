@@ -97,5 +97,5 @@ The most important functions in [`src/omp_convolution.c`](src/omp_convolution.c)
 
 This repository was developed by the following authors as part of the High Performance Computing course at UdL MEINF:
 
-- **[Carles Sànchez i Hidalgo]((https://github.com/carless7)**
-- **[Aniol Serrano Ortega]((https://github.com/aniol0012)**
+- **[Carles Sànchez i Hidalgo](https://github.com/carless7)**
+- **[Aniol Serrano Ortega](https://github.com/aniol0012)**
